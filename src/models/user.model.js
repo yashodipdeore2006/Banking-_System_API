@@ -26,13 +26,13 @@ const userSchema = mongoose.Schema({
 
 
 //Performs hashing of password before saving data o DB if password is modified of new user is created
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   if (!this.isModified("password")) {
-    return next();
+    return;
   };
 
   this.password = await bcrypt.hash(this.password, 10);
-  return next();
+  return;
 });
 
 
