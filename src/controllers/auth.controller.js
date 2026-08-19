@@ -1,4 +1,3 @@
-import { model } from 'mongoose';
 import jwt from 'jsonwebtoken';
 
 //=== Local Modules ===
@@ -55,6 +54,63 @@ export async function registerUserController(req, res) {
       },
       token
     });
+  } catch (error) {
+    console.log('Error : ', error);
+    res.status(500).json({
+      error: 'something went wrong'
+    });
+  };
+};
+
+
+export async function loginUserController(req, res) {
+  try {
+    const { email, password } = req.body;
+
+    const user = await userModel.findOne({ email: email }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        error: 'Email or password is invalid',
+        status: 'failed'
+      });
+    };
+
+    const isValidPassword = await user.comparePassword(password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({
+        error: 'Email or password is invalid',
+        status: 'failed'
+      });
+    };
+
+
+    const token = jwt.sign(
+      {
+        userId: user._id
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '3d'
+      }
+    );
+
+    res.cookie('token', token);
+
+
+    res.status(200).json({
+      message: 'User logged in successfully',
+      status: 'successful',
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+      token
+    });
+
+
   } catch (error) {
     console.log('Error : ', error);
     res.status(500).json({
