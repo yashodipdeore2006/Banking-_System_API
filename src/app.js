@@ -12,8 +12,10 @@ app.use(express.json());
 app.use(cookieParser());
 
 
-//===================================
+//=========== Routes ====================
 app.use("/api/auth", authRouter);
+
+
 
 
 

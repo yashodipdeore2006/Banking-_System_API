@@ -1,12 +1,64 @@
+import { model } from 'mongoose';
+import jwt from 'jsonwebtoken';
+
+//=== Local Modules ===
 import userModel from '../models/user.model.js';
 
 
 
 
-export async function registerUser(req, register) {
+//============== Controllers ====================
+/**
+ * - user register controller
+ * - POST /api/auth/register
+ */
+
+export async function registerUserController(req, res) {
   try {
+    const { name, email, password } = req.body;
 
+    const isExists = await userModel.findOne({ email: email });
+
+    //Error if user already exists
+    if (isExists) {
+      return res.status(422).json({
+        message: 'User already exists with email.',
+        status: 'failed'
+      });
+    };
+
+    const user = await userModel.create({
+      email, password, name
+    });
+
+
+    const token = jwt.sign(
+      {
+        userId: user._id
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '3d'
+      }
+    );
+
+    res.cookie('token', token);
+
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      status: 'successful',
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+      token
+    });
   } catch (error) {
-
+    console.log('Error : ', error);
+    res.status(500).json({
+      error: 'something went wrong'
+    });
   };
 };
