@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 
 //=== Local Modules ===
 import userModel from '../models/user.model.js';
+import sendRegistrationEmail from '../services/mail.service.js';
 
 
 
@@ -43,6 +44,7 @@ export async function registerUserController(req, res) {
 
     res.cookie('token', token);
 
+    sendRegistrationEmail(email, name);
 
     res.status(201).json({
       message: 'User registered successfully',
