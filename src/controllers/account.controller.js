@@ -1,5 +1,5 @@
 import accountModel from "../models/account.model.js";
-
+import mongoose from "mongoose";
 
 export async function createAccount(req, res) {
   try {

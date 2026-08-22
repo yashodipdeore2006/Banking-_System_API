@@ -1,5 +1,5 @@
 import userModel from '../models/user.model.js';
-import jwt, { decode } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 
 
@@ -17,7 +17,7 @@ export async function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await userModel.findById(decode.userId);
+    const user = await userModel.findById(decoded.userId);
 
     req.user = user;
 

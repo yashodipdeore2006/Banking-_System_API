@@ -33,4 +33,4 @@ const accountModel = mongoose.model('Account', accountSchema);
 
 
 //==================================
-export default accountModel();
+export default accountModel;
