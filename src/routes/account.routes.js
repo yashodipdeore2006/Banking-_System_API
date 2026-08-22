@@ -1,13 +1,23 @@
 import express from 'express';
-
-
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { createTestAccount } from 'nodemailer';
 
 //==================================
 const router = express.Router();
 
 
 
-//===============================
+//=========== Routes =================
+
+/*
+  POST /api/account
+
+  Create a new account
+  protected route
+*/
+
+router.post('/', authMiddleware, createAccount);
+
 
 
 
