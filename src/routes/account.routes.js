@@ -1,7 +1,6 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { createTestAccount } from 'nodemailer';
-
+import { createAccount } from '../controllers/account.controller.js';
 //==================================
 const router = express.Router();
 
