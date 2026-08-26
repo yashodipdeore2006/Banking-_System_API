@@ -76,6 +76,61 @@ ledgerSchema.pre('save', function (next) {
   next();
 });
 
+/**
+ * ==== Calculate the total balance of ====
+ */
+
+ledgerSchema.methods.getBalance = async function () {
+  const result = await this.constructor.aggregate([
+    {
+      $match: {
+        account: this.account
+      }
+    },
+
+    {
+      $group: {
+        _id: null,
+
+        credit: {
+          $sum: {
+            $cond: [
+              { $eq: ['$type', 'CREDIT'] },
+              '$amount',
+              0
+            ]
+          }
+        },
+
+        debit: {
+          $sum: {
+            $cond: [
+              { $eq: ['$type', 'DEBIT'] },
+              '$amount',
+              0
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      $project: {
+        _id: 0,
+
+        totalBalance: {
+          $subtract: ['$credit', '$debit']
+        }
+      }
+    }
+  ]);
+
+  return result[0]?.totalBalance ?? 0;
+};
+
+
+
+
 
 
 
