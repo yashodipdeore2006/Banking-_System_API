@@ -1,3 +1,4 @@
+import { text } from "express";
 import nodemailer from "nodemailer";
 
 // ==================================================
@@ -94,5 +95,86 @@ The Banking System API Team`;
     throw error;
   }
 }
+
+async function sendTransactionEmail(email, name, amount, toAccount) {
+  const subject = 'Transaction Successful';
+
+  const body = `
+    Hi {${name}},
+
+    Your transaction of ₹{{amount}} has been successfully processed.
+
+    Transaction Details:
+
+      Amount: ₹{${amount}}
+      Recipient Account: {${toAccount}}
+      Status: Successful
+
+    Thank you for using our banking service.
+
+    Regards,
+    Banking System
+  `;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Transaction Successful</title>
+    </head>
+
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+
+        <div style="
+            max-width: 600px;
+            margin: auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+        ">
+
+            <h2 style="color: #2e7d32;">
+                Transaction Successful
+            </h2>
+
+            <p>Hi <strong>${name}</strong>,</p>
+
+            <p>
+                Your transaction has been successfully processed.
+            </p>
+
+            <div style="
+                background-color: #f5f5f5;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+            ">
+                <p><strong>Amount:</strong> ₹${amount}</p>
+                <p><strong>To Account:</strong> ${toAccount}</p>
+                <p><strong>Status:</strong> Successful</p>
+            </div>
+
+            <p>
+                Thank you for using our banking service.
+            </p>
+
+            <p>
+                Regards,<br>
+                <strong>Banking System</strong>
+            </p>
+
+        </div>
+
+    </body>
+    </html>
+`;
+
+  const result = await sendEmail(email, subject, body, html);
+
+  return result;
+};
+
+
 
 export default sendRegistrationEmail;
