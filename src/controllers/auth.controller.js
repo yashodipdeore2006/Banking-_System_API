@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 //=== Local Modules ===
 import userModel from '../models/user.model.js';
-import sendRegistrationEmail from '../services/mail.service.js';
+import { sendRegistrationEmail } from '../services/mail.service.js';
 
 
 

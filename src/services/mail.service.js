@@ -56,7 +56,7 @@ async function sendEmail(to, subject, text, html) {
 // Registration Email
 // ==================================================
 
-async function sendRegistrationEmail(userEmail, name) {
+export async function sendRegistrationEmail(userEmail, name) {
   try {
     const subject = "Welcome to Banking System API!";
 
@@ -96,7 +96,7 @@ The Banking System API Team`;
   }
 }
 
-async function sendTransactionEmail(email, name, amount, toAccount) {
+export async function sendTransactionEmail(email, name, amount, toAccount) {
   const subject = 'Transaction Successful';
 
   const body = `
@@ -174,7 +174,3 @@ async function sendTransactionEmail(email, name, amount, toAccount) {
 
   return result;
 };
-
-
-
-export default sendRegistrationEmail;
