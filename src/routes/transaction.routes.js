@@ -9,10 +9,10 @@ const router = express.Router();
 //============ Controller ===================
 
 
-router.post('/', authMiddleware, createTransaction,);
+router.post('/', authMiddleware, createTransaction);
 
 
 
 
 //==================================
-export default router();
+export default router;
