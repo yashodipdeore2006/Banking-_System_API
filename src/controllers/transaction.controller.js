@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { json } from 'express';
 import mongoose from 'mongoose';
 
 //=== Local Modules ===
@@ -195,3 +195,121 @@ export async function createTransaction(req, res) {
     });
   };
 };
+
+
+
+
+export async function createInitialFundsTransaction(req, res) {
+  const session = await mongoose.startSession();
+
+  try {
+    const { toAccount, amount, idempotencyKey } = req.body;
+
+    // Error if one of the required fields is missing
+    if (!toAccount || !amount || !idempotencyKey) {
+      return res.status(400).json({
+        message: 'toAccount, amount and idempotencyKey are required'
+      });
+    }
+
+    // Find the user's account
+    const toUserAccount = await accountModel.findOne({
+      _id: toAccount
+    });
+
+    // Error if user's account is not found
+    if (!toUserAccount) {
+      return res.status(400).json({
+        message: 'Invalid toAccount'
+      });
+    }
+
+    // -----------------------------------------
+    // Find system/from account
+    // -----------------------------------------
+
+    const fromUserAccount = await accountModel.findOne({
+      _id: '6a92d6c84c7eb471710706d0'
+    });
+
+    if (!fromUserAccount) {
+      return res.status(400).json({
+        message: 'System account not found'
+      });
+    }
+
+    // -----------------------------------------
+    // Start MongoDB transaction
+    // -----------------------------------------
+
+    session.startTransaction();
+
+    // -----------------------------------------
+    // Create transaction
+    // -----------------------------------------
+
+    const transaction = new transactionModel({
+      fromAccount: fromUserAccount._id,
+      toAccount,
+      amount,
+      idempotencyKey,
+      status: 'PENDING'
+    });
+
+    await transaction.save({ session });
+
+    // -----------------------------------------
+    // Create DEBIT ledger entry
+    // -----------------------------------------
+
+    await ledgerModel.create([{
+      account: fromUserAccount._id,
+      type: 'DEBIT',
+      amount: amount,
+      transaction: transaction._id
+    }], { session });
+
+    // -----------------------------------------
+    // Create CREDIT ledger entry
+    // -----------------------------------------
+
+    await ledgerModel.create([{
+      account: toAccount,
+      type: 'CREDIT',
+      amount: amount,
+      transaction: transaction._id
+    }], { session });
+
+    // -----------------------------------------
+    // Complete transaction
+    // -----------------------------------------
+
+    transaction.status = 'COMPLETED';
+
+    await transaction.save({ session });
+
+    // -----------------------------------------
+    // Commit
+    // -----------------------------------------
+
+    await session.commitTransaction();
+
+    return res.status(201).json({
+      message: 'Initial funds transaction completed successfully',
+      transaction
+    });
+
+  } catch (error) {
+
+    await session.abortTransaction();
+
+    console.error(error);
+
+    return res.status(500).json({
+      error: error.message
+    });
+
+  } finally {
+    await session.endSession();
+  }
+}
