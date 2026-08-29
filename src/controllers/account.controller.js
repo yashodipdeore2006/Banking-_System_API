@@ -21,3 +21,20 @@ export async function createAccount(req, res) {
     });
   };
 };
+
+
+
+export async function getUserAccountsController(req, res) {
+  try {
+    const accounts = await accountModel.find({ user: req.user._id });
+
+    res.status(200).json({
+      accounts
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Something went wrong'
+    });
+  };
+};
