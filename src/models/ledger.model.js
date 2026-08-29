@@ -64,7 +64,7 @@ ledgerSchema.pre('findByIdAndDelete', preventLedgerModification);
 // ================================
 // DOCUMENT SAVE PROTECTION
 // ================================
-ledgerSchema.pre('save', function (next) {
+ledgerSchema.pre('save', function () {
   if (!this.isNew) {
     return next(
       new Error(
@@ -72,8 +72,6 @@ ledgerSchema.pre('save', function (next) {
       )
     );
   }
-
-  next();
 });
 
 
