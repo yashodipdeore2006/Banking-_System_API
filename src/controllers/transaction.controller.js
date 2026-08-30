@@ -135,30 +135,32 @@ export async function createTransaction(req, res) {
     session.startTransaction();
 
     //Creating transaction entry
-    const transaction = await transactionModel.create({
+    const [transaction] = await transactionModel.create([{
       fromAccount,
       toAccount,
       amount,
       idempotencyKey,
       status: 'PENDING'
-    });
+    }], { session });
 
+    console.log('Created transaction:', transaction);
+    console.log('Transaction ID:', transaction._id);
 
     //Adding amount to receivers account
-    const debitLedgerEntry = await ledgerModel.create({
+    const creditLedgerEntry = await ledgerModel.create([{
       account: toAccount,
       amount: amount,
       transaction: transaction._id,
       type: 'CREDIT'
-    }, { session });
+    }], { session });
 
     //Deducting amount from senders account
-    const creditLedgerEntry = await ledgerModel.create({
+    const debitLedgerEntry = await ledgerModel.create([{
       account: fromAccount,
       amount: amount,
       transaction: transaction._id,
       type: 'DEBIT'
-    });
+    }], { session });
 
 
     //Changing transaction status to "COMPLETED"
@@ -169,7 +171,7 @@ export async function createTransaction(req, res) {
 
 
     //Commit transaction to DB
-    await transaction.commitTransaction();
+    await session.commitTransaction();
 
     //Ending transaction
     session.endSession();
@@ -190,7 +192,7 @@ export async function createTransaction(req, res) {
 
   } catch (error) {
     console.error(error);
-    req.status(500).json({
+    res.status(500).json({
       error: 'Something went wrong'
     });
   };
@@ -229,7 +231,7 @@ export async function createInitialFundsTransaction(req, res) {
     // -----------------------------------------
 
     const fromUserAccount = await accountModel.findOne({
-      _id: '6a92d6c84c7eb471710706d0'
+      user: req.user
     });
 
     if (!fromUserAccount) {
@@ -300,16 +302,15 @@ export async function createInitialFundsTransaction(req, res) {
     });
 
   } catch (error) {
-
-    await session.abortTransaction();
+    if (session) {
+      await session.abortTransaction();
+      await session.endSession();
+    }
 
     console.error(error);
 
     return res.status(500).json({
-      error: error.message
+      error: 'Something went wrong'
     });
-
-  } finally {
-    await session.endSession();
   }
 }
