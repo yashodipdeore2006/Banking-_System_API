@@ -10,7 +10,7 @@ const router = express.Router();
 //=================== Controller ===================
 
 // Create Transaction
-// POST /api/accounts/
+// POST /api/transactions/
 router.post('/', authMiddleware, createTransaction);
 
 
