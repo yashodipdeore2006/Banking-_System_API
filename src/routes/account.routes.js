@@ -1,6 +1,6 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { createAccount, getUserAccountsController } from '../controllers/account.controller.js';
+import { createAccount, getUserAccountsController, getAccountBalanceController } from '../controllers/account.controller.js';
 //==================================
 const router = express.Router();
 
@@ -24,6 +24,10 @@ router.post('/', authMiddleware, createAccount);
  */
 router.get('/', authMiddleware, getUserAccountsController);
 
+/**
+ * - GET /api/balance/:accountId
+ */
+router.get('/balance/:accountId', authMiddleware, getAccountBalanceController)
 
 
 //==================================

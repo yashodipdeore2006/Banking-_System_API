@@ -38,3 +38,38 @@ export async function getUserAccountsController(req, res) {
     });
   };
 };
+
+
+export async function getAccountBalanceController(req, res) {
+  try {
+    const { accountId } = req.params;
+
+
+    //Check is account belong to the logged-in user or not.
+    const account = await accountModel.findOne({
+      _id: accountId,
+      user: req.user._id
+    });
+
+
+    //Error if account does not belong to the logged-in user
+    if (!account) {
+      return res.status(404).json({
+        message: 'Account not found'
+      });
+    };
+
+    //Getting the balance of account
+    const balance = await account.getBalance();
+
+
+    return res.status(200).json({
+      message: 'Account balance fetched successfully',
+      Balance: balance
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Something went wrong'
+    });
+  };
+};
