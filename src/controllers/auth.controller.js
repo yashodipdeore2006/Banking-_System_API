@@ -120,3 +120,20 @@ export async function loginUserController(req, res) {
     });
   };
 };
+
+
+export async function logoutController(req, res) {
+  try {
+    res.clearCookie('token');
+
+    return res.status(200).json({
+      message: 'User logged out successfully',
+      status: 'Successful'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went wrong",
+      status: 'Failed'
+    });
+  };
+};

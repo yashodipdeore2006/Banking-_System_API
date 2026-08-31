@@ -2,7 +2,7 @@ import express from "express";
 
 
 //==== LocalModules ===
-import { registerUserController, loginUserController } from '../controllers/auth.controller.js';
+import { registerUserController, loginUserController, logoutController } from '../controllers/auth.controller.js';
 
 //===================================
 const router = express.Router();
@@ -17,6 +17,9 @@ router.post('/register', registerUserController);
 //POST /api/auth/login
 router.post('/login', loginUserController);
 
+
+//POST /api/auth/logout
+router.post('/logout', logoutController);
 
 //===================================
 export default router;
