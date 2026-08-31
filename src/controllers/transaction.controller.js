@@ -334,3 +334,44 @@ export async function createInitialFundsTransaction(req, res) {
     });
   }
 }
+
+
+export async function getTransactionHistory(req, res) {
+  try {
+    const accounts = await accountModel.find({ user: req.user._id }).select('_id');
+
+
+    const accountIds = accounts.map(account => account._id);
+
+    const transactions = await transactionModel.find({
+      $or: [
+        { fromAccount: { $in: accountIds } },
+        { toAccount: { $in: accountIds } }
+      ]
+    });
+
+    const accountsTransactions = new Array(accounts.length);
+
+    accountIds.forEach((accountId, index) => {
+      accountsTransactions[index] = {
+        accountId,
+        transactions:
+          transactions.filter(transaction =>
+            transaction.fromAccount.equals(accountId) ||
+            transaction.toAccount.equals(accountId)
+          )
+      };
+    });
+
+    return res.status(200).json({
+      message: 'Users accounts history fetched successfully',
+      status: 'Successful',
+      History: accountsTransactions
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: 'Something went wrong',
+      status: 'Failed'
+    });
+  };
+};
