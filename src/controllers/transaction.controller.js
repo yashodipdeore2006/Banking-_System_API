@@ -128,61 +128,81 @@ export async function createTransaction(req, res) {
 
     /**
      * 5. ========= Creating Transaction ===========
-     */
+    */
 
-    //Creating/starting transaction
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    let transaction;
+    try {
+      //Creating/starting transaction
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-    //Creating transaction entry
-    const [transaction] = await transactionModel.create([{
-      fromAccount,
-      toAccount,
-      amount,
-      idempotencyKey,
-      status: 'PENDING'
-    }], { session });
+      //Creating transaction entry
+      const [createdTransaction] = await transactionModel.create([{
+        fromAccount,
+        toAccount,
+        amount,
+        idempotencyKey,
+        status: 'PENDING'
+      }], { session });
 
-    console.log('Created transaction:', transaction);
-    console.log('Transaction ID:', transaction._id);
+      transaction = createdTransaction;
 
-    //Adding amount to receivers account
-    const creditLedgerEntry = await ledgerModel.create([{
-      account: toAccount,
-      amount: amount,
-      transaction: transaction._id,
-      type: 'CREDIT'
-    }], { session });
-
-    //Deducting amount from senders account
-    const debitLedgerEntry = await ledgerModel.create([{
-      account: fromAccount,
-      amount: amount,
-      transaction: transaction._id,
-      type: 'DEBIT'
-    }], { session });
+      //Deducting amount from senders account
+      const debitLedgerEntry = await ledgerModel.create([{
+        account: fromAccount,
+        amount: amount,
+        transaction: transaction._id,
+        type: 'DEBIT'
+      }], { session });
 
 
-    //Changing transaction status to "COMPLETED"
-    transaction.status = 'COMPLETED';
+      //Wait for 100 sec to send money to receiver
+      await (() => {
+        return new Promise((resolve) => setTimeout(resolve, 8 * 1000));
+      })();
 
-    //Saving transaction
-    await transaction.save({ session });
+      //Adding amount to receivers account
+      const creditLedgerEntry = await ledgerModel.create([{
+        account: toAccount,
+        amount: amount,
+        transaction: transaction._id,
+        type: 'CREDIT'
+      }], { session });
 
 
-    //Commit transaction to DB
-    await session.commitTransaction();
+      //Changing transaction status to "COMPLETED"
+      transaction.status = 'COMPLETED';
 
-    //Ending transaction
-    session.endSession();
+      //Saving transaction
+      await transaction.save({ session });
+
+
+      //Commit transaction to DB
+      await session.commitTransaction();
+
+      //Ending transaction
+      session.endSession();
+
+
+
+    } catch (error) {
+      await transactionModel.findOneAndUpdate(
+        { idempotencyKey: idempotencyKey },
+        { status: 'FAILED' }
+      );
+
+      return res.status(500).json({
+        message: 'Transaction failed due to internal error',
+        error: error.message
+      });
+    }
 
 
 
     /**
      * 10. ====== Send email notification ======
-     */
+    */
     await sendTransactionEmail(req.user.email, req.user.name, amount, toAccount);
-
 
     // Sending response
     res.status(201).json({
