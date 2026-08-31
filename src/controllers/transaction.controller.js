@@ -375,3 +375,41 @@ export async function getTransactionHistory(req, res) {
     });
   };
 };
+
+
+export async function getTransactionById(req, res) {
+  try {
+    const transactionId = req.params.id;
+
+    const accounts = await accountModel.find({ user: req.user._id });
+
+    const isTransactionExists = await transactionModel.findById(transactionId);
+
+    if (!isTransactionExists) {
+      return res.status(404).json({
+        error: 'Transaction not found',
+        status: 'Failed'
+      });
+    };
+
+    const isUserAccount = accounts.some((account) => {
+      return account._id.equals(isTransactionExists.toAccount) || account._id.equals(isTransactionExists);
+    });
+
+    if (!isUserAccount) {
+      return res.status(404).json({
+        error: 'Transaction does not found for any of your account'
+      });
+    };
+
+    return res.status(200).json({
+      message: `Transaction found your account : ${isUserAccount}`,
+      transaction: isTransactionExists,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: 'Something went wrong',
+      status: 'Failed'
+    });
+  };
+};
