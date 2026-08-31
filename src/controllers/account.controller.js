@@ -73,3 +73,36 @@ export async function getAccountBalanceController(req, res) {
     });
   };
 };
+
+
+
+export async function getAccountController(req, res) {
+  try {
+    const { accountId } = req.params;
+
+    const account = await accountModel.findOne({
+      _id: accountId,
+      user: req.user._id
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        message: 'Account not found',
+        status: 'Failed'
+      });
+    };
+
+    return res.status(200).json({
+      message: 'Account fetched successfully',
+      status: 'successful',
+      account
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: 'Something went wrong',
+      status: 'Failed'
+    });
+  };
+};

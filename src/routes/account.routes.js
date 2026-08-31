@@ -1,6 +1,6 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { createAccount, getUserAccountsController, getAccountBalanceController } from '../controllers/account.controller.js';
+import { createAccount, getUserAccountsController, getAccountBalanceController, getAccountController } from '../controllers/account.controller.js';
 //==================================
 const router = express.Router();
 
@@ -29,6 +29,13 @@ router.get('/', authMiddleware, getUserAccountsController);
  */
 router.get('/balance/:accountId', authMiddleware, getAccountBalanceController)
 
+
+
+/**
+ * - GET /api/accounts/:accountId
+ */
+
+router.get('/:accountId', authMiddleware, getAccountController);
 
 //==================================
 export default router;
