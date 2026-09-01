@@ -6,7 +6,7 @@ import authRouter from './routes/auth.routes.js';
 import accountRouter from './routes/account.routes.js';
 import transactionRouter from './routes/transaction.routes.js';
 import usersRouter from './routes/users.router.js';
-
+import adminRouter from './routes/admin.routes.js'
 //===================================
 const app = express()
 
@@ -21,7 +21,9 @@ app.use("/api/accounts", accountRouter);
 
 app.use('/api/transactions', transactionRouter);
 
-app.use('/api/users', usersRouter)
+app.use('/api/users', usersRouter);
+
+app.use('/api/admin', adminRouter);
 
 //===================================
 export default app;
