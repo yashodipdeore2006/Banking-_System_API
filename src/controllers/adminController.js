@@ -48,3 +48,25 @@ export async function getAdminDashboardController(req, res) {
     });
   };
 };
+
+
+export async function getUsersController(req, res) {
+  try {
+    const users = await userModel
+      .find()
+      .select('-password -systemUser');
+
+    return res.status(200).json({
+      message: 'Users fetched successfully',
+      status: 'Successful',
+      users
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: 'Something went wrong',
+      status: 'Failed'
+    });
+  }
+}
