@@ -2,7 +2,7 @@ import express from 'express';
 
 //======== Local modules ======
 import { authSystemUserMiddleware } from '../middleware/auth.middleware.js';
-import { getAdminDashboardController, getUsersController, updateAccountStatusController } from '../controllers/adminController.js';
+import { getAdminDashboardController, getUsersController, updateAccountStatusController } from '../controllers/admin.Controller.js';
 
 
 
