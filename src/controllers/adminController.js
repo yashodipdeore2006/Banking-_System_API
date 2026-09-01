@@ -70,3 +70,33 @@ export async function getUsersController(req, res) {
     });
   }
 }
+
+
+export async function updateAccountStatusController(req, res) {
+  try {
+    const { accountId, status } = req.params;
+
+    const account = await accountModel.findById(accountId);
+
+    if (!account) {
+      return res.status(404).json({
+        error: 'Account not found',
+        status: 'Failed'
+      });
+    }
+
+    account.status = status;
+    await account.save();
+
+    return res.status(200).json({
+      message: 'Account status changed successfully',
+      status: 'Successful',
+      account
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Something went wrong',
+      status: 'Failed'
+    });
+  }
+}
