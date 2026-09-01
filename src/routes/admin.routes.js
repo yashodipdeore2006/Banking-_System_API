@@ -2,7 +2,7 @@ import express from 'express';
 
 //======== Local modules ======
 import { authSystemUserMiddleware } from '../middleware/auth.middleware.js';
-import { getAdminDashboardController, getUsersController, updateAccountStatusController } from '../controllers/admin.Controller.js';
+import { getAdminDashboardController, getUsersController, updateAccountStatusController, getAdminTransactionController } from '../controllers/admin.Controller.js';
 
 
 
@@ -28,6 +28,14 @@ router.get(
 router.patch(
   '/accounts/:accountId/status/:status', authSystemUserMiddleware,
   updateAccountStatusController
+);
+
+
+
+router.get(
+  '/transactions/:transactionId',
+  authSystemUserMiddleware,
+  getAdminTransactionController
 );
 
 

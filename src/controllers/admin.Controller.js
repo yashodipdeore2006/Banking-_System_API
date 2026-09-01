@@ -100,3 +100,30 @@ export async function updateAccountStatusController(req, res) {
     });
   }
 }
+
+
+export async function getAdminTransactionController(req, res) {
+  try {
+    const { transactionId } = req.params;
+
+    const transaction = await transactionModel.findById(transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({
+        error: 'Transaction not found',
+        status: 'Failed'
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Transaction fetched successfully',
+      status: 'Successful',
+      transaction
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Something went wrong',
+      status: 'Failed'
+    });
+  }
+}
