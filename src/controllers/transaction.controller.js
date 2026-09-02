@@ -5,9 +5,19 @@ import mongoose from 'mongoose';
 import accountModel from '../models/account.model.js';
 import ledgerModel from '../models/ledger.model.js';
 import transactionModel from '../models/transaction.model.js';
-import { sendTransactionEmail } from '../services/mail.service.js';
+import { sendTransactionEmail, sendTransactionOtpEmail } from '../services/mail.service.js';
+import { evaluateTransactionRisk } from '../services/risk.service.js';
+import transactionVerificationModel from '../models/transactionVerification.model.js';
+
+import {
+  generateOtp,
+  hashOtp,
+  getOtpExpiry
+} from '../services/otp.service.js';
 
 
+
+//=====================================================
 /**
  * - Create a new transaction
  * THE 10 STEP TRANSACTION FLOW:
@@ -24,7 +34,7 @@ import { sendTransactionEmail } from '../services/mail.service.js';
  */
 
 
-
+//============================================================
 export async function createTransaction(req, res) {
   try {
 
@@ -124,6 +134,54 @@ export async function createTransaction(req, res) {
       );
     };
 
+    //5.1 === Evaluate risk HERE ===
+    const riskResult = await evaluateTransactionRisk({
+      user: req.user,
+      fromAccount,
+      toAccount,
+      amount
+    });
+
+
+    // 5.2 === Handle HIGH risk transaction ===
+    if (riskResult.requiresOtp) {
+
+      const otp = generateOtp();
+      const otpHash = await hashOtp(otp);
+      const expiresAt = getOtpExpiry();
+
+      const transaction = await transactionModel.create({
+        fromAccount,
+        toAccount,
+        amount,
+        idempotencyKey,
+        status: 'PENDING',
+        riskLevel: riskResult.riskLevel,
+        riskScore: riskResult.riskScore,
+        requiresVerification: true
+      });
+
+      await transactionVerificationModel.createVerification(
+        transaction._id,
+        req.user._id,
+        otpHash,
+        expiresAt
+      );
+
+      // send OTP through mail service
+      await sendTransactionOtpEmail(
+        req.user.email,
+        req.user.name,
+        otp
+      );
+
+      return res.status(202).json({
+        message: 'Transaction requires OTP verification',
+        transactionId: transaction._id,
+        riskLevel: riskResult.riskLevel,
+        expiresAt
+      });
+    };
 
 
     /**
@@ -142,7 +200,10 @@ export async function createTransaction(req, res) {
         toAccount,
         amount,
         idempotencyKey,
-        status: 'PENDING'
+        status: 'PENDING',
+        riskLevel: riskResult.riskLevel,
+        riskScore: riskResult.riskScore,
+        requiresVerification: riskResult.requiresOtp
       }], { session });
 
       transaction = createdTransaction;
@@ -198,7 +259,6 @@ export async function createTransaction(req, res) {
     }
 
 
-
     /**
      * 10. ====== Send email notification ======
     */
@@ -217,6 +277,8 @@ export async function createTransaction(req, res) {
     });
   };
 };
+
+
 
 
 
