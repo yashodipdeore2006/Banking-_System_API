@@ -31,6 +31,23 @@ const transactionSChema = new mongoose.Schema({
     required: [true, 'Idempotency Key is required for creating a transaction'],
     index: true,
     unique: true
+  },
+  riskLevel: {
+    type: String,
+    enum: ['LOW', 'MEDIUM', 'HIGH'],
+    default: 'LOW'
+  },
+
+  riskScore: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+
+  requiresVerification: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
