@@ -44,97 +44,96 @@ export async function createTransaction(req, res) {
 
     const { fromAccount, toAccount, amount, idempotencyKey } = req.body;
 
-    //Error if one of these (fromAccount, toAccount, amount, idempotencyKey) fields is not provided 
     if (!fromAccount || !toAccount || !amount || !idempotencyKey) {
       return res.status(400).json({
-        message: "fromAccount, toAccount, amount &  are required"
+        message: "fromAccount, toAccount, amount & idempotencyKey are required"
       });
-    };
+    }
 
 
-    //Searching "fromAccount" user in accountModel
-    const fromUserAccount = await accountModel.findOne({ _id: fromAccount });
+    // Searching "fromAccount" in accountModel
+    const fromUserAccount = await accountModel.findOne({
+      _id: fromAccount
+    });
 
-    //Searching "toAccount" user in accountModel
-    const toUserAccount = await accountModel.findOne({ _id: toAccount });
+    // Searching "toAccount" in accountModel
+    const toUserAccount = await accountModel.findOne({
+      _id: toAccount
+    });
 
-    //Error if "fromUserAccount" or "toUserAccount" does not exists
     if (!fromUserAccount || !toUserAccount) {
       return res.status(400).json({
         message: "Invalid fromAccount or toAccount"
       });
-    };
-
+    }
 
 
     /**
-     *=============  2. "idempotencyKey" Validation ===============
+     * 2. ========== Idempotency Key Validation ===============
      */
 
-    //
-    const isTransactionAlreadyExists = await transactionModel.findOne({ idempotencyKey: idempotencyKey });
+    const isTransactionAlreadyExists =
+      await transactionModel.findOne({
+        idempotencyKey: idempotencyKey
+      });
 
-
-    //Response depending on the status of the transaction (COMPLETED, PENDING, FAILED, REVERSED)
     if (isTransactionAlreadyExists) {
+
       if (isTransactionAlreadyExists.status === 'COMPLETED') {
         return res.status(200).json({
           message: 'Transaction already processed',
           transaction: isTransactionAlreadyExists
         });
-      };
-
+      }
 
       if (isTransactionAlreadyExists.status === 'PENDING') {
         return res.status(200).json({
           message: 'Transaction is still processing'
         });
-      };
+      }
 
-
-      if (isTransactionAlreadyExists.status === 'FAILED') {
+      if (
+        isTransactionAlreadyExists.status === 'FAILED' ||
+        isTransactionAlreadyExists.status === 'REVERSED'
+      ) {
         return res.status(200).json({
           message: 'Transaction processing failed, please try again'
         });
-      };
-
-      if (isTransactionAlreadyExists.status === 'REVERSED') {
-        return res.status(200).json({
-          message: 'Transaction processing failed, please try again'
-        });
-      };
-    };
+      }
+    }
 
 
-    /**======================================================
-     * 3. Check account status ('ACTIVE', 'FROZEN', 'CLOSED')
-     * ======================================================
+    /**
+     * 3. ========== Account Status Check ===============
      */
 
-    if (fromUserAccount.status !== 'ACTIVE' || toUserAccount.status !== 'ACTIVE') {
+    if (
+      fromUserAccount.status !== 'ACTIVE' ||
+      toUserAccount.status !== 'ACTIVE'
+    ) {
       return res.status(400).json({
-        message: 'Both fromAccount and toAccount must be ACTIVE  to process transaction'
+        message: 'Both fromAccount and toAccount must be ACTIVE to process transaction'
       });
-    };
+    }
 
 
-    /**======================================================
-     * 4. Derive sender balance from ledger
-     * ======================================================     */
+    /**
+     * 4. ========== Balance Check ===============
+     */
 
-    //Getting the total balance of fromUser
     const balance = await fromUserAccount.getBalance();
 
-    //Error if amount is more than account balance
     if (balance < amount) {
-      return res.status(400).json(
-        {
-          message: `Insufficient balance. current balance is : ${balance}. Requested amount is : ${amount}`
-        }
-      );
-    };
+      return res.status(400).json({
+        message: `Insufficient balance. Current balance is: ${balance}. Requested amount is: ${amount}`
+      });
+    }
 
-    //5.1 === Evaluate risk HERE ===
+
+    /**
+     * 5. ========== Risk Evaluation ===============
+     */
+
     const riskResult = await evaluateTransactionRisk({
       user: req.user,
       fromAccount,
@@ -143,7 +142,10 @@ export async function createTransaction(req, res) {
     });
 
 
-    // 5.2 === Handle HIGH risk transaction ===
+    /**
+     * 6. ========== HIGH Risk → OTP Verification ===============
+     */
+
     if (riskResult.requiresOtp) {
 
       const otp = generateOtp();
@@ -168,7 +170,6 @@ export async function createTransaction(req, res) {
         expiresAt
       );
 
-      // send OTP through mail service
       await sendTransactionOtpEmail(
         req.user.email,
         req.user.name,
@@ -181,105 +182,60 @@ export async function createTransaction(req, res) {
         riskLevel: riskResult.riskLevel,
         expiresAt
       });
-    };
-
-
-    /**
-     * 5. ========= Creating Transaction ===========
-    */
-
-    let transaction;
-    try {
-      //Creating/starting transaction
-      const session = await mongoose.startSession();
-      session.startTransaction();
-
-      //Creating transaction entry
-      const [createdTransaction] = await transactionModel.create([{
-        fromAccount,
-        toAccount,
-        amount,
-        idempotencyKey,
-        status: 'PENDING',
-        riskLevel: riskResult.riskLevel,
-        riskScore: riskResult.riskScore,
-        requiresVerification: riskResult.requiresOtp
-      }], { session });
-
-      transaction = createdTransaction;
-
-      //Deducting amount from senders account
-      const debitLedgerEntry = await ledgerModel.create([{
-        account: fromAccount,
-        amount: amount,
-        transaction: transaction._id,
-        type: 'DEBIT'
-      }], { session });
-
-
-      //Wait for 100 sec to send money to receiver
-      await (() => {
-        return new Promise((resolve) => setTimeout(resolve, 8 * 1000));
-      })();
-
-      //Adding amount to receivers account
-      const creditLedgerEntry = await ledgerModel.create([{
-        account: toAccount,
-        amount: amount,
-        transaction: transaction._id,
-        type: 'CREDIT'
-      }], { session });
-
-
-      //Changing transaction status to "COMPLETED"
-      transaction.status = 'COMPLETED';
-
-      //Saving transaction
-      await transaction.save({ session });
-
-
-      //Commit transaction to DB
-      await session.commitTransaction();
-
-      //Ending transaction
-      session.endSession();
-
-
-
-    } catch (error) {
-      await transactionModel.findOneAndUpdate(
-        { idempotencyKey: idempotencyKey },
-        { status: 'FAILED' }
-      );
-
-      return res.status(500).json({
-        message: 'Transaction failed due to internal error',
-        error: error.message
-      });
     }
 
 
     /**
-     * 10. ====== Send email notification ======
-    */
-    await sendTransactionEmail(req.user.email, req.user.name, amount, toAccount);
+     * 7. ========== LOW / MEDIUM Risk Transaction ===============
+     */
 
-    // Sending response
-    res.status(201).json({
+    const [createdTransaction] = await transactionModel.create({
+      fromAccount,
+      toAccount,
+      amount,
+      idempotencyKey,
+      status: 'PENDING',
+      riskLevel: riskResult.riskLevel,
+      riskScore: riskResult.riskScore,
+      requiresVerification: false
+    });
+
+    const transaction = await completeTransaction(
+      createdTransaction._id
+    );
+
+
+    /**
+     * 8. ========== Send Transaction Email ===============
+     */
+
+    await sendTransactionEmail(
+      req.user.email,
+      req.user.name,
+      amount,
+      toAccount
+    );
+
+
+    /**
+     * 9. ========== Response ===============
+     */
+
+    return res.status(201).json({
       message: "Transaction completed successfully",
       transaction: transaction
     });
 
   } catch (error) {
+
     console.error(error);
-    res.status(500).json({
-      error: 'Something went wrong'
+
+    return res.status(500).json({
+      message: 'Something went wrong',
+      error: error.message
     });
-  };
-};
-
-
-
+  }
+}
 
 
 
