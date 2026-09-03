@@ -1,10 +1,6 @@
-import mongoose from 'mongoose';
-
-import transactionModel from '../models/transaction.model.js';
 import transactionVerificationModel from '../models/transactionVerification.model.js';
 
-import transactionModel from '../models/transaction.model.js';
-import transactionVerificationModel from '../models/transactionVerification.model.js';
+import { completeTransaction } from '../services/transaction.service.js';
 
 
 export const verifyTransactionController = async (req, res, next) => {
@@ -68,18 +64,13 @@ export const verifyTransactionController = async (req, res, next) => {
     verification.markVerified();
     await verification.save();
 
-    // 6. Find transaction
-    const transaction = await transactionModel.findById(transactionId);
-
-    if (!transaction) {
-      return res.status(404).json({
-        message: 'Transaction not found'
-      });
-    }
+    // 6. Complete transaction
+    const transaction = await completeTransaction(transactionId);
 
     return res.status(200).json({
-      message: 'OTP verified successfully',
-      transactionId: transaction._id
+      message: 'OTP verified and transaction completed successfully',
+      transactionId: transaction._id,
+      status: transaction.status
     });
 
   } catch (error) {
