@@ -42,11 +42,14 @@ export const completeTransaction = async (transactionId) => {
   }
 
 
-  // 4. Check balance
-  // Use your existing balance calculation here
-  // if (fromAccount.balance < amount) {
-  //   throw new Error('Insufficient balance');
-  // }
+  // 4. Check sender balance
+  const balance = await fromAccount.getBalance();
+
+  if (balance < amount) {
+    throw new Error(
+      `Insufficient balance. Current balance is: ${balance}. Requested amount is: ${amount}`
+    );
+  }
 
 
   // 5. Start MongoDB session
@@ -76,7 +79,7 @@ export const completeTransaction = async (transactionId) => {
     }], { session });
 
 
-    // 9. Mark transaction COMPLETED
+    // 9. Mark transaction as COMPLETED
     transaction.status = 'COMPLETED';
 
 
@@ -84,7 +87,7 @@ export const completeTransaction = async (transactionId) => {
     await transaction.save({ session });
 
 
-    // 11. Commit transaction
+    // 11. Commit MongoDB transaction
     await session.commitTransaction();
 
 
@@ -93,20 +96,23 @@ export const completeTransaction = async (transactionId) => {
 
   } catch (error) {
 
-    // Rollback changes
+    // Rollback DEBIT, CREDIT and transaction changes
     await session.abortTransaction();
 
-    // Mark transaction failed
+
+    // Mark transaction as FAILED
     await transactionModel.findByIdAndUpdate(
       transactionId,
       { status: 'FAILED' }
     );
 
+
+    // Pass error to controller
     throw error;
 
   } finally {
 
-    // 13. End session
+    // 13. Always close session
     await session.endSession();
 
   }
