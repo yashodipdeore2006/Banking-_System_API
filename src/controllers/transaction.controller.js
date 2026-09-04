@@ -7,6 +7,7 @@ import ledgerModel from '../models/ledger.model.js';
 import transactionModel from '../models/transaction.model.js';
 import { sendTransactionEmail, sendTransactionOtpEmail } from '../services/mail.service.js';
 import { evaluateTransactionRisk } from '../services/risk.service.js';
+import { evaluateTransactionCompliance } from '../services/compliance.service.js';
 import { completeTransaction } from '../services/transaction.service.js';
 import transactionVerificationModel from '../models/transactionVerification.model.js';
 
@@ -130,9 +131,27 @@ export async function createTransaction(req, res) {
       });
     }
 
+    /**
+    * 5. ========== Compliance Evaluation ===============
+    */
+    const complianceResult = await evaluateTransactionCompliance({
+      fromAccount: fromUserAccount,
+      toAccount: toUserAccount,
+      amount,
+      balance
+    });
+
+
+    // Block transaction if any compliance rule is violated
+    if (!complianceResult.compliant) {
+      return res.status(403).json({
+        message: 'Transaction blocked by compliance rules',
+        compliance: complianceResult
+      });
+    }
 
     /**
-     * 5. ========== Risk Evaluation ===============
+     * 6. ========== Risk Evaluation ===============
      */
 
     const riskResult = await evaluateTransactionRisk({
@@ -144,7 +163,7 @@ export async function createTransaction(req, res) {
 
 
     /**
-     * 6. ========== HIGH Risk → OTP Verification ===============
+     * 7. ========== HIGH Risk → OTP Verification ===============
      */
 
     if (riskResult.requiresOtp) {
@@ -187,7 +206,7 @@ export async function createTransaction(req, res) {
 
 
     /**
-     * 7. ========== LOW / MEDIUM Risk Transaction ===============
+     * 8. ========== LOW / MEDIUM Risk Transaction ===============
      */
 
     const createdTransaction = await transactionModel.create({
@@ -219,7 +238,7 @@ export async function createTransaction(req, res) {
 
 
     /**
-     * 9. ========== Response ===============
+     * 10. ========== Response ===============
      */
 
     return res.status(201).json({
