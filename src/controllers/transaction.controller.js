@@ -7,6 +7,7 @@ import ledgerModel from '../models/ledger.model.js';
 import transactionModel from '../models/transaction.model.js';
 import { sendTransactionEmail, sendTransactionOtpEmail } from '../services/mail.service.js';
 import { evaluateTransactionRisk } from '../services/risk.service.js';
+import { completeTransaction } from '../services/transaction.service.js';
 import transactionVerificationModel from '../models/transactionVerification.model.js';
 
 import {
@@ -136,8 +137,8 @@ export async function createTransaction(req, res) {
 
     const riskResult = await evaluateTransactionRisk({
       user: req.user,
-      fromAccount,
-      toAccount,
+      fromAccount: fromUserAccount,
+      toAccount: toUserAccount,
       amount
     });
 
@@ -189,7 +190,7 @@ export async function createTransaction(req, res) {
      * 7. ========== LOW / MEDIUM Risk Transaction ===============
      */
 
-    const [createdTransaction] = await transactionModel.create({
+    const createdTransaction = await transactionModel.create({
       fromAccount,
       toAccount,
       amount,
