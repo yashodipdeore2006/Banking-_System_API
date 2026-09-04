@@ -260,33 +260,75 @@ export async function createTransaction(req, res) {
 
 
 export async function createInitialFundsTransaction(req, res) {
-  const session = await mongoose.startSession();
 
   try {
+
     const { toAccount, amount, idempotencyKey } = req.body;
 
-    // Error if one of the required fields is missing
+
+    /**
+     * 1. ========== Request Validation ===============
+     */
+
     if (!toAccount || !amount || !idempotencyKey) {
       return res.status(400).json({
         message: 'toAccount, amount and idempotencyKey are required'
       });
     }
 
-    // Find the user's account
+
+    /**
+     * 2. ========== Idempotency Validation ===============
+     */
+
+    const existingTransaction = await transactionModel.findOne({
+      idempotencyKey
+    });
+
+    if (existingTransaction) {
+
+      if (existingTransaction.status === 'COMPLETED') {
+        return res.status(200).json({
+          message: 'Initial funds transaction already processed',
+          transaction: existingTransaction
+        });
+      }
+
+      if (existingTransaction.status === 'PENDING') {
+        return res.status(200).json({
+          message: 'Initial funds transaction is still processing'
+        });
+      }
+
+      if (
+        existingTransaction.status === 'FAILED' ||
+        existingTransaction.status === 'REVERSED'
+      ) {
+        return res.status(200).json({
+          message: 'Initial funds transaction failed, please try again'
+        });
+      }
+    }
+
+
+    /**
+     * 3. ========== Find Receiver Account ===============
+     */
+
     const toUserAccount = await accountModel.findOne({
       _id: toAccount
     });
 
-    // Error if user's account is not found
     if (!toUserAccount) {
       return res.status(400).json({
         message: 'Invalid toAccount'
       });
     }
 
-    // -----------------------------------------
-    // Find system/from account
-    // -----------------------------------------
+
+    /**
+     * 4. ========== Find System/From Account ===============
+     */
 
     const fromUserAccount = await accountModel.findOne({
       user: req.user
@@ -298,77 +340,97 @@ export async function createInitialFundsTransaction(req, res) {
       });
     }
 
-    // -----------------------------------------
-    // Start MongoDB transaction
-    // -----------------------------------------
 
-    session.startTransaction();
+    /**
+     * 5. ========== Start MongoDB Transaction ===============
+     */
 
-    // -----------------------------------------
-    // Create transaction
-    // -----------------------------------------
+    const session = await mongoose.startSession();
 
-    const transaction = new transactionModel({
-      fromAccount: fromUserAccount._id,
-      toAccount,
-      amount,
-      idempotencyKey,
-      status: 'PENDING'
-    });
+    try {
 
-    await transaction.save({ session });
+      session.startTransaction();
 
-    // -----------------------------------------
-    // Create DEBIT ledger entry
-    // -----------------------------------------
 
-    await ledgerModel.create([{
-      account: fromUserAccount._id,
-      type: 'DEBIT',
-      amount: amount,
-      transaction: transaction._id
-    }], { session });
+      /**
+       * 6. ========== Create Transaction ===============
+       */
 
-    // -----------------------------------------
-    // Create CREDIT ledger entry
-    // -----------------------------------------
+      const transaction = new transactionModel({
+        fromAccount: fromUserAccount._id,
+        toAccount,
+        amount,
+        idempotencyKey,
+        status: 'PENDING'
+      });
 
-    await ledgerModel.create([{
-      account: toAccount,
-      type: 'CREDIT',
-      amount: amount,
-      transaction: transaction._id
-    }], { session });
+      await transaction.save({ session });
 
-    // -----------------------------------------
-    // Complete transaction
-    // -----------------------------------------
 
-    transaction.status = 'COMPLETED';
+      /**
+       * 7. ========== Create DEBIT Ledger Entry ===============
+       */
 
-    await transaction.save({ session });
+      await ledgerModel.create([{
+        account: fromUserAccount._id,
+        type: 'DEBIT',
+        amount,
+        transaction: transaction._id
+      }], { session });
 
-    // -----------------------------------------
-    // Commit
-    // -----------------------------------------
 
-    await session.commitTransaction();
+      /**
+       * 8. ========== Create CREDIT Ledger Entry ===============
+       */
 
-    return res.status(201).json({
-      message: 'Initial funds transaction completed successfully',
-      transaction
-    });
+      await ledgerModel.create([{
+        account: toAccount,
+        type: 'CREDIT',
+        amount,
+        transaction: transaction._id
+      }], { session });
+
+
+      /**
+       * 9. ========== Complete Transaction ===============
+       */
+
+      transaction.status = 'COMPLETED';
+
+      await transaction.save({ session });
+
+
+      /**
+       * 10. ========== Commit MongoDB Transaction ===============
+       */
+
+      await session.commitTransaction();
+
+
+      return res.status(201).json({
+        message: 'Initial funds transaction completed successfully',
+        transaction
+      });
+
+    } catch (error) {
+
+      await session.abortTransaction();
+
+      throw error;
+
+    } finally {
+
+      await session.endSession();
+
+    }
 
   } catch (error) {
-    if (session) {
-      await session.abortTransaction();
-      await session.endSession();
-    }
 
     console.error(error);
 
     return res.status(500).json({
-      error: 'Something went wrong'
+      message: 'Something went wrong',
+      error: error.message
     });
   }
 }
