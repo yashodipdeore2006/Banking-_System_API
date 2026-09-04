@@ -7,7 +7,6 @@ const transactionVerificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Transaction',
     required: [true, 'Transaction is required for verification'],
-    index: true,
     immutable: true
   },
 
@@ -85,6 +84,7 @@ transactionVerificationSchema.methods.canAttempt = function () {
 transactionVerificationSchema.methods.verifyOtp = async function (otp) {
   return bcrypt.compare(otp, this.otpHash);
 };
+
 
 
 transactionVerificationSchema.methods.incrementAttempt = function () {
