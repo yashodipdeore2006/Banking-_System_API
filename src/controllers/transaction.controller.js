@@ -10,6 +10,7 @@ import { evaluateTransactionRisk } from '../services/risk.service.js';
 import { evaluateTransactionCompliance } from '../services/compliance.service.js';
 import { completeTransaction } from '../services/transaction.service.js';
 import transactionVerificationModel from '../models/transactionVerification.model.js';
+import { evaluateTransactionDecision } from '../services/decision.service.js';
 
 import {
   generateOtp,
@@ -161,6 +162,24 @@ export async function createTransaction(req, res) {
       amount
     });
 
+    /**
+     * 7. ========== Final Transaction Decision ===============
+     */
+
+    const decisionResult = evaluateTransactionDecision({
+      riskResult,
+      complianceResult
+    });
+
+    // Block transaction if decision engine rejects it
+    if (decisionResult.decision === 'BLOCK') {
+      return res.status(403).json({
+        message: 'Transaction blocked',
+        decision: decisionResult,
+        compliance: complianceResult,
+        risk: riskResult
+      });
+    }
 
     /**
      * 7. ========== HIGH Risk → OTP Verification ===============
@@ -180,6 +199,7 @@ export async function createTransaction(req, res) {
         status: 'PENDING',
         riskLevel: riskResult.riskLevel,
         riskScore: riskResult.riskScore,
+        riskReasons: riskResult.riskReasons,
         requiresVerification: true
       });
 
@@ -217,6 +237,7 @@ export async function createTransaction(req, res) {
       status: 'PENDING',
       riskLevel: riskResult.riskLevel,
       riskScore: riskResult.riskScore,
+      riskReasons: riskResult.riskReasons,
       requiresVerification: false
     });
 
