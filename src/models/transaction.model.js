@@ -48,6 +48,11 @@ const transactionSChema = new mongoose.Schema({
   requiresVerification: {
     type: Boolean,
     default: false
+  },
+
+  riskReasons: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 
